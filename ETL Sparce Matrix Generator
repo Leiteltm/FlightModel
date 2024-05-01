@@ -1,0 +1,408 @@
+import pandas
+import pandas as pd
+import airportsdata
+import geopy.distance as gd
+from geopy.distance import geodesic
+import numpy as np
+from datetime import datetime
+import matplotlib.pyplot as plt
+
+# dateparse = lambda x: [datetime.strptime(x, '%m-%d-%Y') for d in dates] parse_dates=['ArrivalDate'], infer_datetime_format=True
+file = open(r"C:\Users\leite\Downloads\2018_EU_FlightHistory.csv", 'r')
+# data = pd.read_csv("eighteencomma.csv")
+# data = pd.read_csv(r"C:\Users\leite\Downloads\2018_EU_FlightHistory.csv")
+data = pd.read_csv(r"C:\Users\leite\Documents\Tidy_2018_EU_FlightHistory.csv")
+# datanine = pd.read_csv(r"C:\Users\leite\Downloads\2019_EU_FlightHistory.csv")
+datanine = pd.read_csv(r"C:\Users\leite\Documents\Tidy_2019_EU_FlightHistory.csv")
+# data['ArrivalDate'] = pd.to_datetime(data.date, format='%m/%d%/Y')
+print(data.head())
+print(data.columns)
+# Replace "N\A" values with NaN
+#data['Arrival_DayOfYear'] = pd.to_datetime(data['Arrival_DayOfYear'])
+data.replace('N\A', np.nan, inplace=True)
+data.dropna(inplace=True)
+data = data[data['DepartureAirportICAOCode'] != 'AFIL']
+data = data[data['ArrivalAirportICAOCode'] != 'AFIL']
+data = data[data['DepartureAirportICAOCode'] != 'ZZZZ']
+data = data[data['ArrivalAirportICAOCode'] != 'ZZZZ']
+
+specific_location_df = data[data['ArrivalAirportICAOCode'] == 'LOWL']
+
+# Group by 'date' and count
+arrivals_by_day = specific_location_df.groupby('Arrival_DayOfYear').count()
+print(arrivals_by_day)
+print('jump')
+# Find the day with the most arrivals
+most_arrivals_day = arrivals_by_day.idxmax()
+print(most_arrivals_day)
+most_arrivals_count = arrivals_by_day.max()
+print(most_arrivals_count)
+print(specific_location_df.iloc[[10, 20, 30, 282,283]])
+# Filter the data to keep only the rows where the count is equal to 52
+# Use counts.values to get a numpy array instead of a Series
+# counts_array = counts[data['ArrivalAirportICAOCode']].values
+# Use the == operator on the numpy array
+# data = data[counts_array == 52]
+
+# data['ArrivalDate'] = data['ArrivalDate'].dt.strftime("%m/%d/%Y")
+data['ArrivalDate'] = pd.to_datetime(data['ArrivalDate'])
+data['DepartureDate'] = pd.to_datetime(data['DepartureDate'])
+# ,format='%m/%d/%Y')
+
+datanine.replace('N\A', np.nan, inplace=True)
+datanine.dropna(inplace=True)
+datanine = datanine[datanine['DepartureAirportICAOCode'] != 'AFIL']
+datanine = datanine[datanine['ArrivalAirportICAOCode'] != 'AFIL']
+datanine = datanine[datanine['DepartureAirportICAOCode'] != 'ZZZZ']
+datanine = datanine[datanine['ArrivalAirportICAOCode'] != 'ZZZZ']
+
+# data['ArrivalDate'] = data['ArrivalDate'].dt.strftime("%m/%d/%Y")
+datanine['ArrivalDate'] = pd.to_datetime(datanine['ArrivalDate'])
+datanine['DepartureDate'] = pd.to_datetime(datanine['DepartureDate'])
+print(datanine.dtypes)
+print(data.isnull().sum())
+distICAO = len(pd.unique(data['AircraftICAOCode']))
+print('The number of distinct Aircraft is', distICAO)
+distDeparture = len(pd.unique(data['DepartureAirportICAOCode']))
+print('The number of distinct Departure Locations is', distDeparture)
+distArrival = len(pd.unique(data['ArrivalAirportICAOCode']))
+print('The number of distinct Arrival Locations is', distArrival)
+# datata = open('eighteencomma.csv', 'r')
+
+dset = set(pd.unique(data['DepartureAirportICAOCode']))
+aset = set(pd.unique(data['ArrivalAirportICAOCode']))
+print(dset-aset)
+print(aset-dset)
+common_icaos = dset.intersection(aset)
+data = data[data['DepartureAirportICAOCode'].isin(common_icaos) & data['ArrivalAirportICAOCode'].isin(common_icaos)]
+
+in_departure = 'UWKB' in data['DepartureAirportICAOCode'].values
+in_arrival = 'UWKB' in data['ArrivalAirportICAOCode'].values
+print(f"Is 'UWKB' in the DepartureAirportICAOCode column? {in_departure}")
+print(f"Is 'UWKB' in the ArrivalAirportICAOCode column? {in_arrival}")
+
+airport_codes = data['DepartureAirportICAOCode'].unique()
+empty_df = pd.DataFrame(index=airport_codes, columns=airport_codes)
+#empty_df[:] = np.nan
+empty_df.fillna(0, inplace=True)
+print(empty_df)
+
+
+dept = data['DepartureAirportICAOCode']
+arrv = data['ArrivalAirportICAOCode']
+
+dept_set = set(dept)
+arrv_set = set(arrv)
+
+print(list(dept_set.symmetric_difference(arrv_set)))
+# Symmetric Difference Returns all Items except for the Union
+print(len(list(arrv_set.symmetric_difference(dept_set))))
+
+DiffDept = dept_set.difference(arrv_set)
+DiffArrv = arrv_set.difference(dept_set)
+print('Len diffdept', len(DiffDept), DiffDept)
+print('LenDiffArrv', len(DiffArrv), DiffArrv)
+
+print(dept_set)
+
+#Air has almost every Airport, but there are still some smaller discrepencies that will be thrown out now
+print(data)
+pos = 0
+air = airportsdata.load()
+icao_codes_to_keep = set(air.keys())
+
+
+bool_include = data['DepartureAirportICAOCode'].isin(icao_codes_to_keep)
+
+
+data = data[bool_include]
+
+print(data)
+
+Main = air[data['DepartureAirportICAOCode'].iloc[pos]]
+Main2 = str(Main['icao'])
+print(Main2)
+#exit()
+print(len(data['DepartureAirportICAOCode'].unique()))
+unique = data['DepartureAirportICAOCode'].unique()
+#exit()
+#With input statements and getting rid of the loop, one can use this to find one specific airport's biggest day departure locations
+#The output from this will get the data from all airports and store it in a csv
+for airport in data['DepartureAirportICAOCode'].unique():
+    while pos < 517:
+        #Main = air[input('Which icao ')]
+        #Main2 = input('Repeat')
+        lat = Main['lat']
+        lon = Main['lon']
+        print(lon)
+        out = dict()
+        c1 = (Main['lat'], Main['lon'])
+        for key, val in air.items():
+            c2 = (val['lat'], val['lon'])
+            if gd.geodesic(c1, c2).km < 5:
+                out[key] = val
+        for i in out:
+            print(str(i))
+        print('out equals', out)
+        local = pd.DataFrame(out)
+        import plotly.graph_objects as gleb
+
+        print('df equals', local)
+        print(local.columns)
+        local.columns = local.columns.str.strip()
+        print('ttty')
+        print(local.columns)
+        localt = local.transpose()
+        print(localt)
+        print()
+        print()
+
+        base = (lat,lon)
+
+        x = np.arange(1, 11)
+        y = np.arange(1, 11)
+        x1 = np.arange(11, 21)
+        y1 = np.arange(11, 21)
+        weights = np.arange(1, 11)
+
+        # if
+        # colors = 'Greys'
+        # elif
+        #  colors = 'Reds'
+
+        plt.scatter(x1, y1, c=weights, cmap='Reds', marker='+')
+        plt.scatter(x, y, c=weights, cmap='Purples', marker='+')
+        # plt.show()
+        print(localt['icao'])
+
+
+
+
+
+
+
+        from datetime import timedelta
+
+        start_date = datetime(2018, 3, 27)
+        end_date = datetime(2018, 4, 4)
+        date_list = ['location']
+        locations = ['location']
+
+        while start_date <= end_date:
+            date_list.append(start_date.strftime("%m/%d/%Y"))
+            start_date += timedelta(days=1)
+
+
+        dateframe = pandas.DataFrame(columns=date_list)
+
+        dateframe['location'] = localt['icao']
+        datedata = date_list
+        dates = pandas.DataFrame(datedata, columns=['consec'])
+
+        # for each date, count how many of an icao there are , put it into dataframe
+        # using a dictionary is not idea since I only care about number per date, not the specifics here
+
+        import mysql.connector
+
+        # FOR WHERE USE A DATAFRAME WITH TO INCLUDE THE LIST OF DESIRED ICAOS
+        # that worked, now use date generator to make a new column called dates with the daterange as the records
+
+        pd.set_option('display.max_rows', None)
+        pd.set_option('display.max_columns', None)
+        from pandasql import sqldf
+
+        weekquery = """ SELECT location, Arrival_DayOfYear, COUNT(*)
+        FROM data, dateframe
+        WHERE ArrivalAirportICAOCode IN (location)
+        GROUP BY location, Arrival_DayOfWeek, Arrival_WeekNumber
+        ORDER BY location, Arrival_DayOfYear"""
+        weekdf = sqldf(weekquery)
+        #print(weekdf)
+        weekdf.rename(columns={'Arrival_DayOfYear': 'DayOfYear'}, inplace=True)
+        #print(weekdf.dtypes)
+        mcount = weekdf['COUNT(*)'].max()
+        print('max')
+        print(mcount)
+        mcount_index = weekdf['COUNT(*)'].idxmax()
+        max_day = weekdf.loc[mcount_index, 'DayOfYear']
+        print('mday')
+        print(max_day)
+
+
+
+
+        hope = """
+        SELECT w.DayOfYear, d.DepartureAirportICAOCode
+        FROM weekdf w
+        JOIN data d ON w.DayOfYear = d.Arrival_DayOfYear
+        WHERE d.ArrivalAirportICAOCode = '{v}'
+        """.format(v = Main2)
+
+        resultados= sqldf(hope)
+        print(resultados)
+        print('q')
+        print(type(max_day))  # Check the type of max_day to ensure it's compatible with DataFrame filtering
+        print(resultados.dtypes)    # Check data types of hope DataFrame
+
+        dep_locs = resultados[resultados['DayOfYear'] == max_day]
+        print(dep_locs)
+
+        airports = airportsdata.load()
+
+
+        def get_lat_lon(icao):
+            airport_data = airports.get(icao)
+            if airport_data:
+                return airport_data['lat'], airport_data['lon']
+            else:
+                return None, None  # Return None if the ICAO code isn't found
+
+
+        dep_locs['Latitude'], dep_locs['Longitude'] = zip(*dep_locs['DepartureAirportICAOCode'].apply(get_lat_lon))
+
+        print(dep_locs)
+
+
+
+        #Main = {'lat': 52.5597, 'lon': 13.2877}  # Example coordinates, say for Berlin Tegel Airport
+        c1 = (Main['lat'], Main['lon'])
+        tdist = dict()
+
+
+        for index, row in dep_locs.iterrows():
+            c2 = (row['Latitude'], row['Longitude'])
+            distance = geodesic(c1, c2).km
+            tdist[row['DepartureAirportICAOCode']] = distance
+
+        def distcalc(latitude, longitude ,base):
+            location = (latitude, longitude)
+            return geodesic(location, base).km
+
+        dep_locs['dist'] = dep_locs.apply(lambda row: distcalc(row['Latitude'], row['Longitude'], base), axis=1)
+        print(dep_locs)
+        print('mean flight distance (KM)  traveled to Target airport on its busiest day')
+        print(dep_locs['dist'].mean())
+
+        """fig = gleb.Figure(data=gleb.Scattergeo(lon=dep_locs['Longitude'],
+                                               lat=dep_locs['Latitude'],
+                                               text=dep_locs['DepartureAirportICAOCode'],
+                                               mode='markers'))
+        fig.update_layout(title='Visualization of all Departure Locations for flights that head to Taregt airport on its Busiest Day<br>(Hover for aeroport names)',
+                          geo_scope='europe', )
+        #fig.show()
+    
+        fig = gleb.Figure(data=[
+            gleb.Scattergeo(
+                lon=dep_locs['Longitude'],
+                lat=dep_locs['Latitude'],
+                text=dep_locs['DepartureAirportICAOCode'],
+                mode='markers',
+                marker=dict(color='blue', size=6)  # Assuming default color is blue and size is 6
+            ),
+            gleb.Scattergeo(
+                lon=[Main['lon']],
+                lat=[Main['lat']],
+                text='TARGET AIRPORT',
+                mode='markers',
+                marker=dict(color='green', size=10)  # Green and larger size for emphasis
+            )
+        ])
+    
+        fig.update_layout(
+            title='Visualization of all Departure Locations for flights that head to Target Airport on its Busiest Day<br>(Hover for airport names)',
+            geo_scope='europe',
+        )
+    
+        #fig.show()"""
+
+        for code in dep_locs['DepartureAirportICAOCode']:
+
+            code = str(code)
+            if code in empty_df.index.astype(str):
+                empty_df.at[Main2, code] = 1
+            else:
+                print(f"{Main2} is not in the DataFrame index.")
+
+        #print(empty_df.shape)
+        first_row_sum = empty_df.iloc[0].sum()
+        #print("Sum of the first row:", first_row_sum)
+        pos = pos+1
+        #Main = air[data['DepartureAirportICAOCode'].iloc[pos]]
+        if pos < len(unique):
+            icao_code_at_pos = unique[pos]
+            Main = air[icao_code_at_pos]
+        else:
+            print(f"Position {pos} is out of range for unique ICAO codes.")
+        Main2 = str(Main['icao'])
+        print(pos)
+
+
+print(empty_df.head())
+#print(empty_df.tail())
+
+#print("unique", len(dep_locs.unique()))
+#print(empty_df.head(1))
+#print(dep_locs)
+#print(dep_locs['DepartureAirportICAOCode'].nunique)
+#print(set(dep_locs['DepartureAirportICAOCode']-set(empty_df.columns[empty_df.iloc[0] == 1].tolist())))
+#print(empty_df.columns[empty_df.iloc[0] == 1].tolist())
+print("Unique codes in dep_locs:", dep_locs['DepartureAirportICAOCode'].unique())
+empty_df.to_csv('C:/Users/leite/OneDrive/Desktop/AllDeparturesToIcaoOnBusiest.csv', index=True, header=True)
+
+
+
+#this snippet varifies that the rows were correctly appended/ everything that should be in the end product made it
+#This uses 'EDDB' The first in the empty df to test if all non duplicate flights on busiest day made it in
+#This is static data, but shows that the process did work
+#Flights on Busiest Day = 39 Repeated Entries = 10, Flights recorded in empty df 29
+
+print("Sum of the first row should be equal to the len of dep_locs['Departure...'] minus duplicates:", first_row_sum)
+# The following is static data from running this process on EDDB's biggest day
+latest_set = [
+    'EDFM', 'EDDS', 'EDRY', 'EDDM', 'EDWF', 'LKPR', 'EPMO', 'EGGW', 'LLBG',
+    'EDDT', 'LSZH', 'EDLW', 'LKPR', 'EDVE', 'LHBP', 'EDDB', 'EDSB', 'LYBE',
+    'EDTY', 'EDDW', 'EDDK', 'EDVE', 'LIML', 'EDDW', 'EDSB', 'EFHK', 'EDDM',
+    'EDDP', 'EDVE', 'EDDK', 'EDFM', 'LIML', 'EDWI', 'EGSS', 'ESSB', 'EDDE',
+    'EPWR', 'EDDS', 'LIRP'
+]
+
+# Remove duplicates by converting to a set
+latest_set_unique = set(latest_set)
+
+# Previously confirmed set
+confirmed_set = {
+    'EDDB', 'LHBP', 'LYBE', 'EGGW', 'LIRP', 'LLBG', 'LKPR', 'LSZH', 'EDDM',
+    'EDDK', 'EDDS', 'EDSB', 'ESSB', 'EDDW', 'LIML', 'EGSS', 'EFHK', 'EPWR',
+    'EDDT', 'EDDP', 'EDRY', 'EDTY', 'EDFM', 'EDVE', 'EDDE', 'EDLW', 'EPMO',
+    'EDWF', 'EDWI'
+}
+
+# Find the differences between the latest set and the confirmed set
+difference = latest_set_unique.symmetric_difference(confirmed_set)
+
+# Print the differences
+print("Differences between the latest set and the confirmed set:", difference)
+
+sets_are_same = latest_set == confirmed_set
+
+# If sets are the same, it will print True, otherwise it will print False
+print("Are both sets the same?", sets_are_same)
+
+# If the sets are not the same, it will print the differences
+if not sets_are_same:
+    difference = confirmed_set.symmetric_difference(latest_set)
+    print("The differences are:", difference)
+only_in_latest = latest_set_unique - confirmed_set
+only_in_confirmed = confirmed_set - latest_set_unique
+
+# Print differences
+print("Only in the latest set:", only_in_latest)
+print("Only in the confirmed set:", only_in_confirmed)
+
+unique_items = set(latest_set)
+
+# Calculate the number of duplicates
+number_of_duplicates = len(latest_set) - len(unique_items)
+print("Total number of flights to EDDB on Biggest Day, with duplicate departure locations", len(latest_set) )
+print("Number of duplicates in the latest set:", number_of_duplicates)
+print("Sum of the first row should be equal to the len of dep_locs['Departure...'] minus duplicates:", first_row_sum)
