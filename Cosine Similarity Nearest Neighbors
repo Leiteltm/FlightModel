@@ -1,0 +1,147 @@
+import pandas as pd
+import numpy as np
+from sklearn.metrics.pairwise import cosine_similarity
+from scipy.sparse import csr_matrix
+import airportsdata
+df = pd.read_csv(r"C:\Users\leite\OneDrive\Desktop\AllDeparturesToIcaoOnBusiest.csv", index_col=0)
+#from scipy.sparse import csr_matrix
+
+
+print(df)
+
+# Convert the DataFrame to a CSR (Compressed Sparse Row) matrix
+sparse_matrix = csr_matrix(df.values)
+print("sparse", sparse_matrix)
+#from sklearn.metrics.pairwise import cosine_similarity
+#The data here is 516x516, which is highly reduced from the original dataframe of all European flights in 2018
+#The data is very sparse, with less than two percent of entries being nonzewro
+# COSINE SIMILARITY is best measure here since the variance of airport biggest day lengths won't bias comparision
+#Cos Sim here compares the elements of a set of departure locations, to see which arrivial locations are most similar on their busiest day
+similarities = cosine_similarity(sparse_matrix)
+print("sims", similarities)
+
+from sklearn.neighbors import NearestNeighbors
+
+
+
+
+nn = NearestNeighbors(algorithm='brute', metric='cosine')
+
+nn.fit(sparse_matrix)
+query_point = input('query Icao')
+index_position = df.index.get_loc(query_point)
+N = int(input('Number of Similar Airports to Return'))
+
+if query_point in df.columns:
+
+    query_idx = list(df.columns).index(query_point)
+
+    query_vector = sparse_matrix.getrow(query_idx)
+
+    # Find the nearest neighbors for this vector
+    distances, indices = nn.kneighbors(query_vector, n_neighbors=N+1)
+
+    print(distances, indices)
+else:
+    print(f"ICAO code {query_point} is not in the DataFrame's columns.")
+nearest_icao_codes = [df.index[idx] for idx in indices.flatten()]
+
+print("Distances:", distances)
+print("Nearest ICAO codes:", nearest_icao_codes)
+
+#exit()
+# Get the Desired ICAO from the first col of the similarity matrix
+target_row_similarities = similarities[index_position]
+
+sorted_indices = np.argsort(target_row_similarities)[::-1]
+#sorted_indices = sorted_indices[sorted_indices != query_pos]
+sorted_indices = sorted_indices[sorted_indices != query_idx]
+# Get the top N similarity values and their corresponding indices
+top_indices = sorted_indices[:N]
+top_values = target_row_similarities[top_indices]
+
+top_column_names = df.columns[top_indices]
+print('Another Measure of Cosine Similarity')
+# Print out the top N similarities and their corresponding column names
+for i in range(len(top_values)):
+    print(f"Column: {top_column_names[i]}, Similarity: {top_values[i]}")
+
+air = airportsdata.load('ICAO')
+
+nearest_airports = {code: air[code] for code in nearest_icao_codes if code in air}
+
+
+print(nearest_airports)
+
+import pandas as pd
+
+airports_df = pd.DataFrame.from_dict(air, orient='index')
+
+# Filter the DataFrame for the nearest ICAO codes
+sim_airports_df = airports_df[airports_df.index.isin(nearest_icao_codes)]
+
+# Print the resulting DataFrame
+print(sim_airports_df)
+
+
+import plotly.graph_objects as gleb
+icao_code = df.index[index_position]
+
+# Now use this ICAO code to access data in the 'air' library
+Target = air[icao_code]
+print(Target)
+
+
+hover_texts = [f"{icao}, Similarity: {similarity:.2f}"
+               for icao, similarity in zip(sim_airports_df['icao'], top_values)]
+
+
+fig = gleb.Figure(data=[
+    gleb.Scattergeo(
+        lon=sim_airports_df['lon'],
+        lat=sim_airports_df['lat'],
+        text=hover_texts,
+        mode='markers',
+        name='Similar Airports',
+        marker=dict(color='blue', size=6)  # Assuming default color is blue and size is 6
+    ),
+    gleb.Scattergeo(
+        lon=[Target['lon']],
+        lat = [Target['lat']],
+        text='TARGET AIRPORT',
+        mode='markers',
+        name='Target Airport',
+        marker=dict(color='green', size=14)  # Green and larger size for emphasis
+    )
+])
+
+fig.update_layout(
+    title='Visualization of all Departure Locations for flights that head to Target Airport on its Busiest Day<br>(Hover for airport names)',
+    geo_scope='europe',
+)
+
+fig.show()
+exit()
+fig.update_layout(
+    title='Visualization of all Departure Locations for flights that head to Target Airport on its Busiest Day<br>(Hover for airport names)',
+    geo_scope='europe',
+)
+
+
+
+
+
+fig = gleb.Figure(data=gleb.Scattergeo(lon=sim_airports_df['lon'],
+                                       lat=sim_airports_df['lat'],
+                                       text=sim_airports_df['icao'],
+                                       mode='markers'))
+
+"""for i in localt['icao']:
+    if localt['icao'] != 'LIRF':
+        fig.update_traces(marker_color='red')
+    else:
+        fig.update_traces(marker_color='blue')"""
+
+fig.update_layout(title='Binary Cosine Based Most Similar Airports by Departure Locations On Busiest Day'  ,
+                  geo_scope='europe', )
+fig.show()
